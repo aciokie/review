@@ -2,8 +2,8 @@
 
 A production-quality Chess.com-style Game Review web application utilizing a **decoupled, high-performance architecture**:
 
-- **Render Web App (Frontend + Application Layer)**: Serves the web interface and API routing layer permanently on Render from GitHub.
-- **Google Colab Stockfish 19 Analysis Engine**: High-compute server running official Stockfish 19 Dev/Master compiled natively on Colab runtime hardware.
+- **Render Web App (Frontend + Application Layer)**: Serves the web interface and API routing layer permanently on Render from GitHub (`chess-game-review-gui`).
+- **Google Colab Stockfish 19 GPU/NNUE Engine**: High-compute server running official Stockfish 19 Dev/Master compiled natively on GPU runtime with NNUE neural net acceleration (**Depth 30+**).
 - **Cloudflare Tunnel**: Exposes the Colab FastAPI Stockfish engine via a secure public HTTPS endpoint configurable directly in the web app UI.
 
 ---
@@ -22,10 +22,10 @@ RENDER DEPLOYED WEB APP (GitHub Repo)
 CLOUDFLARE TUNNEL (https://xxxxx.trycloudflare.com)
   │
   ▼
-GOOGLE COLAB STOCKFISH 19 SERVER
+GOOGLE COLAB STOCKFISH 19 GPU SERVER
   │
   ├── FastAPI / Uvicorn Server (Port 8000)
-  └── Stockfish 19 Dev/Master Engine Process (multithreaded UCI)
+  └── Stockfish 19 Dev/Master Engine Process (Depth 30+ Multithreaded UCI + NNUE)
 ```
 
 ---
@@ -33,12 +33,15 @@ GOOGLE COLAB STOCKFISH 19 SERVER
 ## 🚀 Features
 
 - **Chess.com-Style Game Review Interface**: Clean dark-mode UI with Chessboard.js, Tailwind CSS, Lucide icons, and Chart.js evaluation graph.
+- **On-Board Classification Badge Icons**: Floating badges (`!!`, `!`, `★`, `✓`, `!?`, `?`, `Miss`, `??`, `📖`) rendered on target board squares.
+- **SVG Directional Move Arrows**: Green best-move and orange blunder/mistake directional arrows rendered over the chessboard.
+- **Chess Coach Persona Commentary**: Conversational coach feedback box explaining key tactical concepts and material changes.
+- **Depth 30+ Deep Analysis with Live Progressive Ticker**: Stockfish 19 runs deep depth 30+ searches with real-time depth counter feedback.
+- **Stockfish WASM Web Worker Fallback**: Automatic local browser engine fallback if Colab is offline or local engine is selected.
 - **CAPS-Style Accuracy Scoring**: Calculates move-by-move evaluation loss using `103.16 * e^(-0.0435 * loss) - 3.16`.
-- **Multi-Signal Move Classifications**: Brilliant (`!!`), Great Move (`!`), Best Move (`★`), Excellent (`✓`), Good (`✓`), Inaccuracy (`!?`), Mistake (`?`), Miss (`Miss`), Blunder (`??`), and Book Move (`📖`).
-- **Performance Elo Estimation**: Deterministic game rating calculation per player based on overall accuracy and error distribution.
+- **Performance Elo Estimation**: Deterministic rating performance calculation per player based on accuracy and error distribution.
 - **Interactive Evaluation Bar**: Dynamic win probability % bar normalized from White's perspective using `WinChance = 100 / (1 + 10^(-cp / 400))`.
-- **Retry Move Practice Mode**: Allows users to replay blunders or mistakes without revealing engine solutions.
-- **Local WASM Fallback**: Fallback engine analysis if Colab runtime is disconnected or unconfigured.
+- **Retry Move Practice Mode**: Replay blunders or mistakes interactively without exposing engine solutions.
 
 ---
 
@@ -55,7 +58,8 @@ chess-game-review/
 │   │   ├── board.js
 │   │   ├── review.js
 │   │   ├── api.js
-│   │   └── settings.js
+│   │   ├── settings.js
+│   │   └── stockfish-wasm.js
 │   └── assets/
 ├── backend/
 │   ├── app.py
@@ -93,18 +97,19 @@ chess-game-review/
    - **Environment**: Python 3.11+
    - **Build Command**: `pip install -r requirements.txt`
    - **Start Command**: `uvicorn backend.app:app --host 0.0.0.0 --port $PORT`
-5. Deploy service. Once deployed, Render will provide a permanent HTTPS URL (e.g. `https://chess-game-review.onrender.com`).
+5. Deploy service. Once deployed, Render will provide a permanent HTTPS URL (e.g. `https://chess-game-review-gui.onrender.com`).
+   > **Note on Initial Deploy**: Ensure the pull request containing `requirements.txt` and `backend/app.py` is merged into your default branch (`main`) so Render's automated build finds `requirements.txt`.
 
-### 3. Google Colab Stockfish Server Setup
+### 3. Google Colab Stockfish GPU Server Setup
 1. Open Google Colab and upload `colab/stockfish_server.ipynb`.
 2. Run the 5 steps in order:
    - **STEP 1**: Install dependencies (`python-chess`, `fastapi`, `uvicorn`, `cloudflared`).
-   - **STEP 2**: Detect CPU capabilities & compile official Stockfish 19 Dev/Master.
+   - **STEP 2**: Detect CUDA GPU hardware capabilities & compile official Stockfish 19 Dev/Master with NNUE.
    - **STEP 3**: Start local FastAPI server on port 8000.
    - **STEP 4**: Launch Cloudflare Tunnel and copy the generated HTTPS URL:
      ```text
      ==================================================
-     🏆 CHESS ANALYSIS SERVER IS LIVE!
+     🏆 STOCKFISH 19 GPU (DEPTH 30+) SERVER IS LIVE!
      ==================================================
      Public URL: https://xxxxx.trycloudflare.com
      ==================================================
@@ -129,9 +134,10 @@ Checks engine status and connectivity.
   {
     "status": "ok",
     "engine_connected": true,
-    "engine": "Stockfish 19 (Dev/Master)",
+    "engine": "Stockfish 19 (Dev/Master (NNUE GPU Accelerated))",
     "threads": 4,
-    "hash_mb": 512
+    "hash_mb": 512,
+    "min_depth": 30
   }
   ```
 
@@ -139,48 +145,10 @@ Checks engine status and connectivity.
 Returns detailed engine build metadata.
 
 ### `POST /api/evaluate`
-Evaluates a single FEN position.
-- **Request**:
-  ```json
-  {
-    "fen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
-    "depth": 20,
-    "threads": 4,
-    "hash_mb": 512,
-    "multipv": 1
-  }
-  ```
-- **Response**:
-  ```json
-  {
-    "best_move": "e5",
-    "best_move_uci": "e7e5",
-    "evaluation_cp": 20,
-    "mate": null,
-    "white_win_chance": 52.8,
-    "black_win_chance": 47.2,
-    "depth": 20,
-    "pv": ["e5", "Nf3", "Nc6"]
-  }
-  ```
+Evaluates a single FEN position at minimum 30+ depth.
 
 ### `POST /api/review`
-Performs complete game review from a PGN string.
-- **Request**:
-  ```json
-  {
-    "pgn": "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6",
-    "depth": 18
-  }
-  ```
-- **Response**:
-  ```json
-  {
-    "metadata": { "white": "White Player", "black": "Black Player", "opening": { "eco": "C65", "opening": "Ruy Lopez" } },
-    "accuracy": { "white": { "overall": 91.7, "estimated_elo": 1850 }, "black": { "overall": 84.3, "estimated_elo": 1580 } },
-    "moves": [ ... ]
-  }
-  ```
+Performs complete game review from a PGN string at depth 30+.
 
 ---
 
@@ -202,8 +170,8 @@ Open `http://127.0.0.1:8000` in browser.
 
 ## ❓ Troubleshooting
 
+- **Render Build Error "Could not open requirements file"**: Render tried to build an older commit on `main` before `requirements.txt` was merged into `main`. Merging the branch into `main` resolves this automatically.
 - **Colab Engine Disconnected**: Verify Colab notebook Step 4 URL is active and re-paste the Cloudflare Tunnel URL into Settings.
-- **CORS Error**: The FastAPI server allows `*` origins by default. Ensure your Cloudflare URL includes `https://`.
 - **Colab Disconnects After Hours**: Google Colab runtimes are temporary (12-24 hours max). Simply restart the notebook and update the Cloudflare URL in settings.
 
 ---
