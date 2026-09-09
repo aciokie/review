@@ -135,6 +135,18 @@
 
           <!-- Main Chessboard Container -->
           <div class="w-full max-w-[500px] aspect-square relative shadow-2xl rounded-sm overflow-hidden border border-amber-900/30">
+            <!-- SVG Overlay for Move Arrows -->
+            <svg id="board-arrows-svg">
+              <defs>
+                <marker id="arrow-best" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1 L 10 5 L 0 9 z" fill="#81b64c" />
+                </marker>
+                <marker id="arrow-played" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1 L 10 5 L 0 9 z" fill="#e68a00" />
+                </marker>
+              </defs>
+            </svg>
+
             <div id="my-board" class="w-full h-full"></div>
 
             <!-- Overlay for Retry Practice Mode -->

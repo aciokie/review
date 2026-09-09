@@ -1,5 +1,5 @@
 /**
- * Interactive Chess Board & Control Module
+ * Interactive Chess Board & Control Module with SVG Arrow Rendering
  */
 const BoardManager = {
   board: null,
@@ -22,7 +22,12 @@ const BoardManager = {
     };
 
     this.board = Chessboard('my-board', config);
-    $(window).resize(() => this.board && this.board.resize());
+    $(window).resize(() => {
+      if (this.board) {
+        this.board.resize();
+        this.highlightCurrentMove();
+      }
+    });
 
     this.bindControls();
     this.bindKeyboardShortcuts();
@@ -96,8 +101,68 @@ const BoardManager = {
     $("#eval-score-badge").text(scoreStr);
   },
 
+  clearArrows() {
+    const svg = document.getElementById("board-arrows-svg");
+    if (svg) {
+      // Keep defs element for markers, remove line/path elements
+      $(svg).find("line, path").remove();
+    }
+  },
+
+  getSquareCenterCoords(square) {
+    const boardEl = $("#my-board");
+    const squareEl = boardEl.find(`.square-${square}`);
+    if (squareEl.length === 0) return null;
+
+    const boardOffset = boardEl.offset();
+    const sqOffset = squareEl.offset();
+    const sqWidth = squareEl.width();
+    const sqHeight = squareEl.height();
+
+    const x = sqOffset.left - boardOffset.left + sqWidth / 2;
+    const y = sqOffset.top - boardOffset.top + sqHeight / 2;
+
+    return { x, y };
+  },
+
+  drawArrow(fromSquare, toSquare, color = "#81b64c", markerId = "arrow-best") {
+    const fromCoords = this.getSquareCenterCoords(fromSquare);
+    const toCoords = this.getSquareCenterCoords(toSquare);
+
+    if (!fromCoords || !toCoords) return;
+
+    const svg = document.getElementById("board-arrows-svg");
+    if (!svg) return;
+
+    // Shorten line slightly so arrow head aligns nicely
+    const dx = toCoords.x - fromCoords.x;
+    const dy = toCoords.y - fromCoords.y;
+    const angle = Math.atan2(dy, dx);
+    const length = Math.sqrt(dx * dx + dy * dy);
+
+    if (length === 0) return;
+
+    const shorten = 18; // Shorten arrow tip before square center
+    const endX = fromCoords.x + (length - shorten) * Math.cos(angle);
+    const endY = fromCoords.y + (length - shorten) * Math.sin(angle);
+
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", fromCoords.x);
+    line.setAttribute("y1", fromCoords.y);
+    line.setAttribute("x2", endX);
+    line.setAttribute("y2", endY);
+    line.setAttribute("stroke", color);
+    line.setAttribute("stroke-width", "12");
+    line.setAttribute("stroke-linecap", "round");
+    line.setAttribute("opacity", "0.85");
+    line.setAttribute("marker-end", `url(#${markerId})`);
+
+    svg.appendChild(line);
+  },
+
   highlightCurrentMove() {
     $("#my-board .square-55d63").removeClass("highlight-last-move highlight-best-move highlight-played-move");
+    this.clearArrows();
 
     if (this.currentPly === 0 || !this.reviewData || !this.reviewData.moves) {
       return;
@@ -115,9 +180,22 @@ const BoardManager = {
     }
 
     // Highlight engine best move square if different
-    if (moveData.best_move_uci && moveData.best_move_uci !== moveData.played_uci) {
-      const bestToSq = moveData.best_move_uci.substring(2, 4);
-      $(`#my-board .square-${bestToSq}`).addClass("highlight-best-move");
+    if (moveData.best_move_uci && moveData.best_move_uci.length >= 4) {
+      const bestFrom = moveData.best_move_uci.substring(0, 2);
+      const bestTo = moveData.best_move_uci.substring(2, 4);
+      $(`#my-board .square-${bestTo}`).addClass("highlight-best-move");
+
+      // Draw Best Move Arrow (Green)
+      this.drawArrow(bestFrom, bestTo, "#81b64c", "arrow-best");
+    }
+
+    // If played move was blunder/mistake, draw Played Move Arrow (Orange/Red)
+    if (moveData.played_uci && moveData.played_uci.length >= 4 && moveData.best_move_uci !== moveData.played_uci) {
+      const playedFrom = moveData.played_uci.substring(0, 2);
+      const playedTo = moveData.played_uci.substring(2, 4);
+      if (["BLUNDER", "MISTAKE", "MISS", "INACCURACY"].includes(moveData.classification_key)) {
+        this.drawArrow(playedFrom, playedTo, "#e68a00", "arrow-played");
+      }
     }
   },
 
@@ -157,6 +235,7 @@ const BoardManager = {
 
     this.isPracticeMode = true;
     this.practiceTargetMove = targetMoveData;
+    this.clearArrows();
 
     // Reset game to position before blunder/mistake
     this.game.load(targetMoveData.fen_before);
@@ -202,6 +281,7 @@ const BoardManager = {
 
     $("#btn-flip").click(() => {
       this.board.flip();
+      setTimeout(() => this.highlightCurrentMove(), 150);
     });
 
     $("#btn-play").click(() => {
@@ -256,6 +336,7 @@ const BoardManager = {
         case "F":
           e.preventDefault();
           this.board.flip();
+          setTimeout(() => this.highlightCurrentMove(), 150);
           break;
       }
     });
