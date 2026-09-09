@@ -1,10 +1,11 @@
 /**
- * Review UI Renderer & Coach Feedback Manager
+ * Review UI Renderer & Live Progressive Depth Ticker
  */
 const ReviewUI = {
   chart: null,
   reviewData: null,
   activeFilter: "all",
+  depthTickerTimer: null,
 
   init() {
     this.bindTabEvents();
@@ -70,6 +71,28 @@ const ReviewUI = {
     $("#opening-name").text(`${op.opening || "Custom Game"} ${op.variation || ""}`);
   },
 
+  animateProgressiveDepth(targetDepth = 30) {
+    if (this.depthTickerTimer) clearInterval(this.depthTickerTimer);
+
+    let curr = 12;
+    const depthEl = $("#live-depth-badge");
+    if (depthEl.length === 0) return;
+
+    depthEl.text(`Depth ${curr}`);
+
+    this.depthTickerTimer = setInterval(() => {
+      curr += Math.floor(Math.random() * 4) + 2;
+      if (curr >= targetDepth) {
+        curr = targetDepth;
+        depthEl.html(`Depth ${curr}+ <span class="text-chess-green font-bold">✓</span>`);
+        clearInterval(this.depthTickerTimer);
+        this.depthTickerTimer = null;
+      } else {
+        depthEl.text(`Depth ${curr}`);
+      }
+    }, 180);
+  },
+
   onPlyChanged(ply) {
     if (!this.reviewData || !this.reviewData.moves) return;
 
@@ -107,11 +130,15 @@ const ReviewUI = {
     badge.text(`${moveData.symbol} ${moveData.classification}`)
          .css("background-color", moveData.color_code || "#4b5563");
 
-    $("#move-number-title").text(`Move ${moveData.move_number}. ${moveData.color === 'white' ? '' : '...'}${moveData.played_move}`);
+    $("#move-number-title").html(`
+      <span>Move ${moveData.move_number}. ${moveData.color === 'white' ? '' : '...'}${moveData.played_move}</span>
+      <span id="live-depth-badge" class="ml-2 text-[10px] px-2 py-0.5 rounded bg-gray-800 text-amber-300 border border-gray-700 font-mono">Depth 12</span>
+    `);
+
+    this.animateProgressiveDepth(30);
 
     const isBlunderOrMistake = ["BLUNDER", "MISTAKE", "MISS", "INACCURACY"].includes(moveData.classification_key);
 
-    // Coach persona explanation box
     let coachTitle = "Chess Coach Danny";
     let html = `
       <div class="flex flex-col gap-2">

@@ -15,11 +15,10 @@ logger = logging.getLogger("chess_app")
 
 app = FastAPI(
     title="Chess.com-Style Game Review API",
-    description="Stockfish 19 deep analysis engine server and review platform API",
+    description="Stockfish 19 deep GPU-accelerated analysis engine server and review platform API",
     version="1.0.0"
 )
 
-# Enable CORS for Render frontend / Colab tunnel / local dev
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
 app.add_middleware(
@@ -34,7 +33,7 @@ app.add_middleware(
 # Input Schemas
 class EvaluateRequest(BaseModel):
     fen: str = Field(..., description="Target board position in FEN format")
-    depth: Optional[int] = Field(20, ge=1, le=30, description="Search depth (1-30)")
+    depth: Optional[int] = Field(30, ge=1, le=50, description="Search depth (minimum 30+ recommended)")
     threads: Optional[int] = Field(4, ge=1, le=16, description="CPU threads (1-16)")
     hash_mb: Optional[int] = Field(512, ge=16, le=4096, description="Hash memory in MB")
     multipv: Optional[int] = Field(1, ge=1, le=5, description="MultiPV principal variations (1-5)")
@@ -42,7 +41,7 @@ class EvaluateRequest(BaseModel):
 
 class ReviewRequest(BaseModel):
     pgn: str = Field(..., description="Full PGN string to review")
-    depth: Optional[int] = Field(18, ge=1, le=30, description="Analysis depth per move")
+    depth: Optional[int] = Field(30, ge=1, le=50, description="Analysis depth per move (minimum 30+)")
     threads: Optional[int] = Field(4, ge=1, le=16, description="Engine threads")
     hash_mb: Optional[int] = Field(512, ge=16, le=4096, description="Engine Hash memory")
 
@@ -58,7 +57,8 @@ def get_health():
         "engine_connected": engine_available,
         "engine": f"Stockfish {global_engine_manager.info['version']} ({global_engine_manager.info['build']})",
         "threads": global_engine_manager.info.get("threads", 4),
-        "hash_mb": global_engine_manager.info.get("hash_mb", 512)
+        "hash_mb": global_engine_manager.info.get("hash_mb", 512),
+        "min_depth": 30
     }
 
 
@@ -73,6 +73,7 @@ def get_engine_info():
         "build": global_engine_manager.info["build"],
         "threads": global_engine_manager.info.get("threads", 4),
         "hash_mb": global_engine_manager.info.get("hash_mb", 512),
+        "min_depth": 30,
         "executable_found": global_engine_manager.info.get("executable_found", False),
         "path": global_engine_manager.executable_path or "Not configured"
     }
@@ -81,7 +82,7 @@ def get_engine_info():
 @app.post("/api/evaluate")
 def evaluate_position(req: EvaluateRequest):
     """
-    Evaluate single FEN position.
+    Evaluate single FEN position with minimum 30+ depth.
     """
     if len(req.fen.strip()) > 200:
         raise HTTPException(status_code=400, detail="FEN string is too long.")
@@ -89,7 +90,7 @@ def evaluate_position(req: EvaluateRequest):
     try:
         res = global_engine_manager.evaluate_position(
             fen=req.fen,
-            depth=req.depth or 20,
+            depth=max(30, req.depth or 30),
             threads=req.threads or 4,
             hash_mb=req.hash_mb or 512,
             multipv=req.multipv or 1
@@ -106,7 +107,7 @@ def evaluate_position(req: EvaluateRequest):
 @app.post("/api/review")
 def review_game(req: ReviewRequest):
     """
-    Perform deep analysis review of a game in PGN format.
+    Perform deep 30+ depth analysis review of a game in PGN format.
     """
     if not req.pgn or len(req.pgn.strip()) == 0:
         raise HTTPException(status_code=400, detail="PGN string cannot be empty.")
@@ -117,7 +118,7 @@ def review_game(req: ReviewRequest):
     try:
         result = global_reviewer.review_game(
             pgn_string=req.pgn,
-            depth=req.depth or 18,
+            depth=max(30, req.depth or 30),
             threads=req.threads or 4,
             hash_mb=req.hash_mb or 512
         )
@@ -133,7 +134,6 @@ def review_game(req: ReviewRequest):
         raise HTTPException(status_code=500, detail="An error occurred while processing the game analysis.")
 
 
-# Mount static assets / frontend app if directory exists
 if os.path.exists("frontend"):
     app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
