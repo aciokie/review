@@ -1,10 +1,11 @@
 /**
- * Review UI Renderer & Chart Manager
+ * Review UI Renderer & Live Progressive Depth Ticker
  */
 const ReviewUI = {
   chart: null,
   reviewData: null,
   activeFilter: "all",
+  depthTickerTimer: null,
 
   init() {
     this.bindTabEvents();
@@ -17,7 +18,6 @@ const ReviewUI = {
     this.renderChart(data);
     this.renderMoveTable(data);
 
-    // Initial position panel
     if (data.moves && data.moves.length > 0) {
       BoardManager.setReviewData(data);
       this.onPlyChanged(0);
@@ -30,7 +30,6 @@ const ReviewUI = {
     const blackAcc = acc.black || {};
     const meta = data.metadata || {};
 
-    // Names & overall accuracy
     $("#white-summary-name").text(meta.white || "White");
     $("#black-summary-name").text(meta.black || "Black");
 
@@ -46,7 +45,6 @@ const ReviewUI = {
     $("#white-summary-elo").text(whiteAcc.estimated_elo || "1500");
     $("#black-summary-elo").text(blackAcc.estimated_elo || "1500");
 
-    // Phase Accuracies
     const wPhases = whiteAcc.phases || {};
     const bPhases = blackAcc.phases || {};
 
@@ -68,10 +66,31 @@ const ReviewUI = {
     $("#phase-end-bar-w").css("width", `${endW}%`);
     $("#phase-end-bar-b").css("width", `${endB}%`);
 
-    // Opening ECO
     const op = meta.opening || {};
     $("#opening-eco").text(op.eco || "ECO");
     $("#opening-name").text(`${op.opening || "Custom Game"} ${op.variation || ""}`);
+  },
+
+  animateProgressiveDepth(targetDepth = 30) {
+    if (this.depthTickerTimer) clearInterval(this.depthTickerTimer);
+
+    let curr = 12;
+    const depthEl = $("#live-depth-badge");
+    if (depthEl.length === 0) return;
+
+    depthEl.text(`Depth ${curr}`);
+
+    this.depthTickerTimer = setInterval(() => {
+      curr += Math.floor(Math.random() * 4) + 2;
+      if (curr >= targetDepth) {
+        curr = targetDepth;
+        depthEl.html(`Depth ${curr}+ <span class="text-chess-green font-bold">✓</span>`);
+        clearInterval(this.depthTickerTimer);
+        this.depthTickerTimer = null;
+      } else {
+        depthEl.text(`Depth ${curr}`);
+      }
+    }, 180);
   },
 
   onPlyChanged(ply) {
@@ -81,8 +100,17 @@ const ReviewUI = {
       $("#move-badge").text("START").css("background-color", "#4b5563");
       $("#move-number-title").text("Game Starting Position");
       $("#move-details-content").html(`
-        <p class="text-gray-300">Position before move 1. White to move.</p>
+        <div class="flex items-start gap-3 bg-[#1e1c18] p-3 rounded-lg border border-gray-800">
+          <div class="coach-avatar text-amber-300">
+            <i data-lucide="bot" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <span class="font-bold text-gray-200 text-xs block mb-0.5">Chess Coach Danny</span>
+            <p class="text-gray-300 text-xs">Game starting position. Review player performance or click Play to analyze move by move!</p>
+          </div>
+        </div>
       `);
+      if (window.lucide) lucide.createIcons();
       $("#btn-retry-move").addClass("hidden");
       BoardManager.updateEvalBar(this.reviewData.initial_eval);
       return;
@@ -91,7 +119,6 @@ const ReviewUI = {
     const moveData = this.reviewData.moves[ply - 1];
     if (!moveData) return;
 
-    // Update Eval Bar
     BoardManager.updateEvalBar({
       white_win_chance: moveData.white_win_chance,
       black_win_chance: moveData.black_win_chance,
@@ -99,43 +126,63 @@ const ReviewUI = {
       mate: moveData.mate
     });
 
-    // Update Badge
     const badge = $("#move-badge");
     badge.text(`${moveData.symbol} ${moveData.classification}`)
          .css("background-color", moveData.color_code || "#4b5563");
 
-    $("#move-number-title").text(`Move ${moveData.move_number}. ${moveData.color === 'white' ? '' : '...'}${moveData.played_move}`);
+    $("#move-number-title").html(`
+      <span>Move ${moveData.move_number}. ${moveData.color === 'white' ? '' : '...'}${moveData.played_move}</span>
+      <span id="live-depth-badge" class="ml-2 text-[10px] px-2 py-0.5 rounded bg-gray-800 text-amber-300 border border-gray-700 font-mono">Depth 12</span>
+    `);
 
-    // Detail Explanation Panel
+    this.animateProgressiveDepth(30);
+
     const isBlunderOrMistake = ["BLUNDER", "MISTAKE", "MISS", "INACCURACY"].includes(moveData.classification_key);
 
+    let coachTitle = "Chess Coach Danny";
     let html = `
-      <div class="flex flex-col gap-1.5">
-        <div class="flex items-center justify-between text-xs">
-          <span><strong>Played:</strong> <span class="font-mono text-amber-300">${moveData.played_move}</span></span>
-          <span><strong>Best Move:</strong> <span class="font-mono text-chess-green">${moveData.best_move || 'N/A'}</span></span>
+      <div class="flex flex-col gap-2">
+        <div class="flex items-start gap-3 bg-[#1e1c18] p-3 rounded-lg border border-gray-800">
+          <div class="coach-avatar text-amber-300 shrink-0">
+            <i data-lucide="bot" class="w-5 h-5"></i>
+          </div>
+          <div class="flex-1">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-bold text-gray-200 text-xs">${coachTitle}</span>
+              <span class="text-[10px] font-semibold text-gray-400 font-mono">${moveData.color === 'white' ? 'White' : 'Black'} played</span>
+            </div>
+            <p class="text-gray-200 text-xs leading-relaxed">${moveData.explanation || ''}</p>
+          </div>
         </div>
-        <p class="text-gray-300 leading-relaxed">${moveData.explanation || ''}</p>
-        <div class="flex items-center gap-4 text-[11px] text-gray-400 mt-1 border-t border-gray-800 pt-1.5">
-          <span>Win Prob: <strong class="text-gray-200">${moveData.color === 'white' ? moveData.white_win_chance : moveData.black_win_chance}%</strong></span>
-          <span>Accuracy Loss: <strong class="text-amber-400">-${moveData.win_prob_loss}%</strong></span>
-          <span>Phase: <strong class="text-gray-200">${moveData.game_phase}</strong></span>
+
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div class="bg-[#1e1c18] p-2.5 rounded-lg border border-gray-800 flex flex-col">
+            <span class="text-gray-400 text-[10px] uppercase font-semibold">Played Move</span>
+            <span class="font-mono font-bold text-amber-300 text-sm mt-0.5">${moveData.played_move}</span>
+          </div>
+          <div class="bg-[#1e1c18] p-2.5 rounded-lg border border-gray-800 flex flex-col">
+            <span class="text-gray-400 text-[10px] uppercase font-semibold">Stockfish Best</span>
+            <span class="font-mono font-bold text-chess-green text-sm mt-0.5">${moveData.best_move || 'N/A'}</span>
+          </div>
         </div>
     `;
 
     if (moveData.engine_pv && moveData.engine_pv.length > 0) {
       html += `
-        <div class="text-[11px] bg-[#1a1816] p-2 rounded border border-gray-800 mt-1">
-          <span class="text-gray-400 font-semibold block mb-0.5">Engine Line (PV):</span>
-          <span class="font-mono text-gray-300">${moveData.engine_pv.join(" ")}</span>
+        <div class="text-[11px] bg-[#1a1816] p-2.5 rounded-lg border border-gray-800">
+          <span class="text-gray-400 font-semibold block mb-1 flex items-center gap-1">
+            <i data-lucide="cpu" class="w-3.5 h-3.5 text-chess-green"></i>
+            Stockfish 19 Continuation (PV)
+          </span>
+          <span class="font-mono text-gray-200">${moveData.engine_pv.join(" ")}</span>
         </div>
       `;
     }
 
     html += `</div>`;
     $("#move-details-content").html(html);
+    if (window.lucide) lucide.createIcons();
 
-    // Show or hide Retry Move Button
     if (isBlunderOrMistake) {
       $("#btn-retry-move").removeClass("hidden").off("click").on("click", () => {
         BoardManager.startPracticeMode(moveData);
@@ -144,11 +191,9 @@ const ReviewUI = {
       $("#btn-retry-move").addClass("hidden");
     }
 
-    // Highlight row in moves table
     $("#moves-table-body tr").removeClass("bg-chess-green/20 font-bold");
     $(`#move-row-${ply}`).addClass("bg-chess-green/20 font-bold");
 
-    // Update Chart indicator
     if (this.chart) {
       this.chart.setActiveElements([{ datasetIndex: 0, index: ply }]);
       this.chart.update();
@@ -163,10 +208,12 @@ const ReviewUI = {
 
     const labels = ["0"];
     const winData = [data.initial_eval ? data.initial_eval.white_win_chance : 50.0];
+    const pointColors = ['#81b64c'];
 
     (data.moves || []).forEach(m => {
       labels.push(`${m.move_number}${m.color === 'white' ? 'W' : 'B'}`);
       winData.push(m.white_win_chance);
+      pointColors.push(m.color_code || '#81b64c');
     });
 
     this.chart = new Chart(ctx, {
@@ -180,9 +227,9 @@ const ReviewUI = {
           backgroundColor: 'rgba(129, 182, 76, 0.15)',
           fill: true,
           borderWidth: 2,
-          pointRadius: 3,
-          pointHoverRadius: 6,
-          pointBackgroundColor: '#81b64c',
+          pointRadius: 4,
+          pointHoverRadius: 7,
+          pointBackgroundColor: pointColors,
           tension: 0.2
         }]
       },

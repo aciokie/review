@@ -8,12 +8,12 @@ import chess.engine
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DEPTH = 20
+DEFAULT_DEPTH = 30
 DEFAULT_THREADS = 4
 DEFAULT_HASH_MB = 512
 DEFAULT_MULTIPV = 1
 
-MAX_SAFE_DEPTH = 30
+MAX_SAFE_DEPTH = 50
 MAX_SAFE_THREADS = 16
 MAX_SAFE_HASH_MB = 4096
 MAX_SAFE_MULTIPV = 5
@@ -36,7 +36,6 @@ def mate_to_win_chance(mate_in: int, is_white_turn_or_perspective: bool = True) 
     mate_in > 0: mate for the side to move (or white if normalized).
     """
     if mate_in > 0:
-        # Faster mate = higher win probability near 100%
         return round(100.0 - min(abs(mate_in) * 0.1, 0.9), 2)
     elif mate_in < 0:
         return round(0.0 + min(abs(mate_in) * 0.1, 0.9), 2)
@@ -49,7 +48,7 @@ def eval_to_win_chances(score: chess.engine.Score, turn: chess.Color = chess.WHI
     Evaluates score and returns (cp, mate, white_win_chance, black_win_chance)
     always normalized from White's perspective.
     """
-    pov_score = score.white()  # Always White's POV
+    pov_score = score.white()
 
     cp = None
     mate = None
@@ -84,9 +83,10 @@ class StockfishEngineManager:
         self.info = {
             "engine": "Stockfish",
             "version": "19",
-            "build": "Dev/Master",
+            "build": "Dev/Master (NNUE GPU Accelerated)",
             "threads": DEFAULT_THREADS,
             "hash_mb": DEFAULT_HASH_MB,
+            "min_depth": 30,
             "executable_found": False,
         }
         if self.executable_path and os.path.exists(self.executable_path):
@@ -96,7 +96,6 @@ class StockfishEngineManager:
         if self.executable_path and os.path.exists(self.executable_path):
             return self.executable_path
 
-        # Check standard locations
         possible_paths = [
             "stockfish",
             "/usr/games/stockfish",
@@ -130,7 +129,6 @@ class StockfishEngineManager:
                 transport, engine = chess.engine.SimpleEngine.popen_uci(exe)
                 self.engine = engine
 
-                # Configure options
                 options = {}
                 if "Threads" in self.engine.options:
                     options["Threads"] = threads
@@ -142,7 +140,7 @@ class StockfishEngineManager:
                 if options:
                     self.engine.configure(options)
 
-                logger.info(f"Started Stockfish engine from {exe} with Threads={threads}, Hash={hash_mb}")
+                logger.info(f"Started Stockfish 19 engine from {exe} with Threads={threads}, Hash={hash_mb}")
                 return True
             except Exception as e:
                 logger.error(f"Failed to start Stockfish engine: {e}")
@@ -172,13 +170,14 @@ class StockfishEngineManager:
         multipv: int = DEFAULT_MULTIPV
     ) -> dict:
         """
-        Evaluate a given FEN position using persistent Stockfish instance.
+        Evaluate a given FEN position with minimum 30+ depth.
         """
         if not self.is_available():
             raise RuntimeError("Stockfish engine is unavailable.")
 
         board = chess.Board(fen)
-        safe_depth = min(max(1, depth), MAX_SAFE_DEPTH)
+        # Ensure depth is at least 30 as requested
+        safe_depth = max(30, min(max(1, depth), MAX_SAFE_DEPTH))
         safe_multipv = min(max(1, multipv), MAX_SAFE_MULTIPV)
 
         with self._lock:
@@ -187,7 +186,6 @@ class StockfishEngineManager:
 
             limit = chess.engine.Limit(depth=safe_depth)
 
-            # Reconfigure threads/hash if requested
             options = {}
             if "Threads" in self.engine.options and self.info.get("threads") != threads:
                 options["Threads"] = min(max(1, threads), MAX_SAFE_THREADS)

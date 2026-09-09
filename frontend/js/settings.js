@@ -7,7 +7,7 @@ const Settings = {
   defaults: {
     engineProvider: "colab", // 'colab' or 'local'
     colabUrl: "",
-    depth: 20,
+    depth: 30, // Default 30+ deep analysis
     threads: 4,
     hashMb: 512,
     multiPv: 1
@@ -17,7 +17,9 @@ const Settings = {
     try {
       const stored = localStorage.getItem(this.STORAGE_KEY);
       if (stored) {
-        return { ...this.defaults, ...JSON.parse(stored) };
+        const parsed = JSON.parse(stored);
+        if (!parsed.depth || parsed.depth < 30) parsed.depth = 30;
+        return { ...this.defaults, ...parsed };
       }
     } catch (e) {
       console.warn("Error reading settings from localStorage:", e);
@@ -29,6 +31,7 @@ const Settings = {
     try {
       const current = this.load();
       const updated = { ...current, ...settingsObj };
+      if (!updated.depth || updated.depth < 30) updated.depth = 30;
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updated));
       return updated;
     } catch (e) {

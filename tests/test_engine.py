@@ -18,7 +18,7 @@ def test_engine_manager_instantiation():
     mgr = StockfishEngineManager()
     assert mgr.info["engine"] == "Stockfish"
     assert mgr.info["version"] == "19"
-    assert mgr.info["build"] == "Dev/Master"
+    assert "Dev/Master" in mgr.info["build"]
 
 if __name__ == "__main__":
     pytest.main([__file__])

@@ -1,5 +1,54 @@
 /* Custom CSS Extensions for Chess Game Review Platform */
 
+/* Chessboard SVG Arrow Overlay */
+#board-arrows-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Floating On-Board Move Classification Badge Icons */
+.board-classification-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: #ffffff;
+  font-weight: 900;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(255, 255, 255, 0.25);
+  pointer-events: none;
+  z-index: 15;
+  animation: badgePop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes badgePop {
+  0% { transform: scale(0.2); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Coach Avatar Card Styling */
+.coach-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #81b64c, #2b5212);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #81b64c;
+  box-shadow: 0 0 10px rgba(129, 182, 76, 0.4);
+}
+
 /* Chessboard square highlights */
 .highlight-last-move {
   background-color: rgba(255, 255, 0, 0.4) !important;
