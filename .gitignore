@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.env
+venv/
+env/
+dist/
+.DS_Store
+*.so
+stockfish
+stockfish.exe
+Stockfish/
