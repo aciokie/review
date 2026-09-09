@@ -1,0 +1,58 @@
+/* Custom CSS Extensions for Chess Game Review Platform */
+
+/* Chessboard square highlights */
+.highlight-last-move {
+  background-color: rgba(255, 255, 0, 0.4) !important;
+}
+
+.highlight-best-move {
+  background-color: rgba(0, 255, 128, 0.45) !important;
+}
+
+.highlight-played-move {
+  background-color: rgba(255, 165, 0, 0.45) !important;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #161512;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #363430;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #81b64c;
+}
+
+/* Badge colors matching Chess.com style */
+.bg-badge-brilliant { background-color: #1baca6; }
+.bg-badge-great { background-color: #5c8bb0; }
+.bg-badge-best { background-color: #96bc4b; }
+.bg-badge-excellent { background-color: #96bc4b; }
+.bg-badge-good { background-color: #a8b88d; }
+.bg-badge-inaccuracy { background-color: #f0c15c; }
+.bg-badge-mistake { background-color: #e68a00; }
+.bg-badge-miss { background-color: #ee6b6b; }
+.bg-badge-blunder { background-color: #ca3431; }
+.bg-badge-book { background-color: #d5a47e; }
+
+/* Move classification glow effects */
+.glow-brilliant {
+  box-shadow: 0 0 12px rgba(27, 172, 166, 0.6);
+}
+.glow-blunder {
+  box-shadow: 0 0 12px rgba(202, 52, 49, 0.6);
+}
+
+/* Smooth transition for evaluation bar height */
+#eval-bar-white, #eval-bar-black {
+  transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
