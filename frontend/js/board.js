@@ -1,5 +1,5 @@
 /**
- * Interactive Chess Board & Control Module with SVG Arrow Rendering
+ * Interactive Chess Board & Control Module with SVG Arrow & On-Board Classification Icons
  */
 const BoardManager = {
   board: null,
@@ -82,14 +82,12 @@ const BoardManager = {
       }
     }
 
-    // Set height of white and black bars
     $("#eval-bar-white").css("height", `${whiteWin}%`);
     $("#eval-bar-black").css("height", `${blackWin}%`);
 
     $("#eval-text-bottom").text(`${Math.round(whiteWin)}%`);
     $("#eval-text-top").text(`${Math.round(blackWin)}%`);
 
-    // Badge score display
     let scoreStr = "0.0";
     if (mate !== null && mate !== undefined) {
       scoreStr = `M${Math.abs(mate)}`;
@@ -101,12 +99,12 @@ const BoardManager = {
     $("#eval-score-badge").text(scoreStr);
   },
 
-  clearArrows() {
+  clearArrowsAndBadges() {
     const svg = document.getElementById("board-arrows-svg");
     if (svg) {
-      // Keep defs element for markers, remove line/path elements
       $(svg).find("line, path").remove();
     }
+    $("#my-board .board-classification-badge").remove();
   },
 
   getSquareCenterCoords(square) {
@@ -134,7 +132,6 @@ const BoardManager = {
     const svg = document.getElementById("board-arrows-svg");
     if (!svg) return;
 
-    // Shorten line slightly so arrow head aligns nicely
     const dx = toCoords.x - fromCoords.x;
     const dy = toCoords.y - fromCoords.y;
     const angle = Math.atan2(dy, dx);
@@ -142,7 +139,7 @@ const BoardManager = {
 
     if (length === 0) return;
 
-    const shorten = 18; // Shorten arrow tip before square center
+    const shorten = 18;
     const endX = fromCoords.x + (length - shorten) * Math.cos(angle);
     const endY = fromCoords.y + (length - shorten) * Math.sin(angle);
 
@@ -162,7 +159,7 @@ const BoardManager = {
 
   highlightCurrentMove() {
     $("#my-board .square-55d63").removeClass("highlight-last-move highlight-best-move highlight-played-move");
-    this.clearArrows();
+    this.clearArrowsAndBadges();
 
     if (this.currentPly === 0 || !this.reviewData || !this.reviewData.moves) {
       return;
@@ -175,8 +172,12 @@ const BoardManager = {
     if (moveData.played_uci && moveData.played_uci.length >= 4) {
       const fromSq = moveData.played_uci.substring(0, 2);
       const toSq = moveData.played_uci.substring(2, 4);
-      $(`#my-board .square-${fromSq}`).addClass("highlight-played-move");
-      $(`#my-board .square-${toSq}`).addClass("highlight-played-move");
+      const targetSqEl = $(`#my-board .square-${fromSq}`).addClass("highlight-played-move");
+      const targetToSqEl = $(`#my-board .square-${toSq}`).addClass("highlight-played-move");
+
+      // Attach On-Board Move Classification Badge Icon on target square
+      const badgeHtml = `<div class="board-classification-badge" style="background-color: ${moveData.color_code}">${moveData.symbol}</div>`;
+      targetToSqEl.css("position", "relative").append(badgeHtml);
     }
 
     // Highlight engine best move square if different
@@ -189,7 +190,7 @@ const BoardManager = {
       this.drawArrow(bestFrom, bestTo, "#81b64c", "arrow-best");
     }
 
-    // If played move was blunder/mistake, draw Played Move Arrow (Orange/Red)
+    // If played move was blunder/mistake, draw Played Move Arrow (Orange)
     if (moveData.played_uci && moveData.played_uci.length >= 4 && moveData.best_move_uci !== moveData.played_uci) {
       const playedFrom = moveData.played_uci.substring(0, 2);
       const playedTo = moveData.played_uci.substring(2, 4);
@@ -201,14 +202,12 @@ const BoardManager = {
 
   onDragStart(source, piece, position, orientation) {
     if (this.isPracticeMode) {
-      // Allow dragging in practice mode
       if ((this.game.turn() === 'w' && piece.search(/^b/) !== -1) ||
           (this.game.turn() === 'b' && piece.search(/^w/) !== -1)) {
         return false;
       }
       return true;
     }
-    // Block dragging on main review board unless practicing
     return false;
   },
 
@@ -235,9 +234,8 @@ const BoardManager = {
 
     this.isPracticeMode = true;
     this.practiceTargetMove = targetMoveData;
-    this.clearArrows();
+    this.clearArrowsAndBadges();
 
-    // Reset game to position before blunder/mistake
     this.game.load(targetMoveData.fen_before);
     this.board.position(this.game.fen(), true);
 
@@ -308,7 +306,6 @@ const BoardManager = {
 
   bindKeyboardShortcuts() {
     $(document).keydown((e) => {
-      // Don't intercept when user typing in text inputs or textareas
       if ($(e.target).is("input, textarea, select")) return;
 
       switch (e.key) {
