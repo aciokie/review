@@ -20,7 +20,6 @@ const API = {
     if (this.activeProvider === "colab" && this.colabUrl) {
       return this.colabUrl;
     }
-    // Fallback to relative origin (Render server or local)
     return window.location.origin;
   },
 
@@ -38,7 +37,7 @@ const API = {
       this.isConnected = true;
     } else if (status === "local") {
       dot.addClass("bg-blue-500");
-      engineText.text("Local Browser Engine");
+      engineText.text("Local Browser Stockfish WASM");
       statusText.text("Available");
       this.isConnected = true;
     } else if (status === "checking") {
@@ -60,8 +59,8 @@ const API = {
     this.colabUrl = (settings.colabUrl || "").trim().replace(/\/+$/, "");
 
     if (this.activeProvider === "local") {
-      this.updateStatusUI("local", "Available", "Local Browser Engine");
-      return { status: "ok", engine_connected: true, engine: "Local Browser Engine" };
+      this.updateStatusUI("local", "Available", "Local Browser Stockfish WASM");
+      return { status: "ok", engine_connected: true, engine: "Local Browser Stockfish WASM" };
     }
 
     if (!this.colabUrl) {
@@ -103,7 +102,7 @@ const API = {
     if (this.healthCheckTimer) clearInterval(this.healthCheckTimer);
     this.healthCheckTimer = setInterval(() => {
       this.checkHealth();
-    }, 15000); // Poll health every 15s
+    }, 15000);
   },
 
   async evaluatePosition(fen, depth = 20) {
@@ -132,7 +131,7 @@ const API = {
       }
       return await res.json();
     } catch (err) {
-      console.warn("Colab Evaluation Failed, falling back to local:", err.message);
+      console.warn("Colab Evaluation Failed, falling back to local WASM:", err.message);
       return this.evaluatePositionLocal(fen);
     }
   },
@@ -162,13 +161,19 @@ const API = {
       }
       return await res.json();
     } catch (err) {
-      console.warn("Colab Review Failed, falling back to local analysis:", err.message);
+      console.warn("Colab Review Failed, falling back to local WASM analysis:", err.message);
       return this.reviewGameLocal(pgnString);
     }
   },
 
-  /* Local Browser Fallback Analysis (Lightweight in-browser fallback) */
-  evaluatePositionLocal(fen) {
+  /* Local WASM Engine Fallback */
+  async evaluatePositionLocal(fen) {
+    if (window.stockfishWasm) {
+      const wasmResult = await window.stockfishWasm.evaluate(fen, 12);
+      if (wasmResult) return wasmResult;
+    }
+
+    // JS Fallback evaluator if WASM worker fails
     const game = new Chess(fen);
     if (game.game_over()) {
       if (game.in_checkmate()) {
@@ -179,7 +184,7 @@ const API = {
           mate: mate,
           white_win_chance: mate > 0 ? 100.0 : 0.0,
           black_win_chance: mate > 0 ? 0.0 : 100.0,
-          depth: 14,
+          depth: 12,
           pv: []
         };
       }
@@ -189,12 +194,11 @@ const API = {
         mate: null,
         white_win_chance: 50.0,
         black_win_chance: 50.0,
-        depth: 14,
+        depth: 12,
         pv: []
       };
     }
 
-    // Material & mobility count evaluation
     const pieceValues = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
     let score = 0;
     const board = game.board();
@@ -209,7 +213,6 @@ const API = {
       }
     }
 
-    // Add mobility factor
     const moves = game.moves({ verbose: true });
     score += (game.turn() === 'w' ? 1 : -1) * (moves.length * 5);
 
@@ -217,16 +220,16 @@ const API = {
     const winChance = Math.round(100 / (1 + Math.pow(10, -cp / 400)) * 10) / 10;
     const bestMove = moves.length > 0 ? moves[0].san : null;
 
-    return Promise.resolve({
+    return {
       best_move: bestMove,
       best_move_uci: moves.length > 0 ? moves[0].from + moves[0].to : null,
       evaluation_cp: cp,
       mate: null,
       white_win_chance: winChance,
       black_win_chance: Math.round((100 - winChance) * 10) / 10,
-      depth: 14,
+      depth: 12,
       pv: moves.slice(0, 3).map(m => m.san)
-    });
+    };
   },
 
   async reviewGameLocal(pgnString) {
@@ -265,7 +268,7 @@ const API = {
       let classColor = "#96bc4b";
       let className = "Good";
 
-      if (evalBefore.best_move === move.san) {
+      if (evalBefore.best_move === move.san || evalBefore.best_move_uci === move.from + move.to) {
         classKey = "BEST_MOVE"; classSymbol = "★"; className = "Best Move"; classColor = "#96bc4b";
       } else if (loss > 35) {
         classKey = "BLUNDER"; classSymbol = "??"; className = "Blunder"; classColor = "#ca3431";
@@ -282,6 +285,7 @@ const API = {
         played_move: move.san,
         played_uci: move.from + move.to,
         best_move: evalBefore.best_move,
+        best_move_uci: evalBefore.best_move_uci,
         classification: className,
         classification_key: classKey,
         symbol: classSymbol,

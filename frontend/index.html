@@ -63,7 +63,7 @@
         <div>
           <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
             Game Review
-            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Stockfish 19</span>
+            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Stockfish 19 / WASM</span>
           </h1>
           <p class="text-xs text-gray-400">Deep Engine Game Analysis Platform</p>
         </div>
@@ -84,7 +84,7 @@
         <!-- Engine Selector Dropdown -->
         <select id="engine-selector" class="bg-[#312e2b] text-gray-200 text-xs rounded-lg px-2.5 py-1.5 border border-gray-700 focus:outline-none focus:border-chess-green">
           <option value="colab">● Google Colab Stockfish 19</option>
-          <option value="local">● Local Browser Engine</option>
+          <option value="local">● Local Stockfish WASM</option>
         </select>
 
         <!-- Settings Button -->
@@ -426,7 +426,7 @@
           <label class="block font-semibold text-gray-300 mb-1">Active Engine Provider</label>
           <select id="modal-engine-provider" class="w-full bg-[#161512] border border-gray-700 rounded-lg p-2 text-gray-200">
             <option value="colab">Google Colab Stockfish 19 (Recommended)</option>
-            <option value="local">Local Browser Engine (Stockfish WASM)</option>
+            <option value="local">Local Stockfish WASM</option>
           </select>
         </div>
 
@@ -481,6 +481,7 @@
   </div>
 
   <!-- JS Modules -->
+  <script src="/static/js/stockfish-wasm.js"></script>
   <script src="/static/js/api.js"></script>
   <script src="/static/js/settings.js"></script>
   <script src="/static/js/board.js"></script>
