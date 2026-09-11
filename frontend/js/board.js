@@ -223,28 +223,48 @@ const BoardManager = {
   },
 
   onDragStart(source, piece, position, orientation) {
-    if (this.isPracticeMode) {
-      if ((this.game.turn() === 'w' && piece.search(/^b/) !== -1) ||
-          (this.game.turn() === 'b' && piece.search(/^w/) !== -1)) {
-        return false;
-      }
-      return true;
+    if (this.game.game_over()) return false;
+
+    // Do not pick up pieces of the wrong turn
+    if ((this.game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+        (this.game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+      return false;
     }
-    return false;
+    return true;
   },
 
   onDrop(source, target) {
-    if (!this.isPracticeMode) return 'snapback';
+    if (source === target) return 'snapback';
 
-    const move = this.game.move({
-      from: source,
-      to: target,
-      promotion: 'q'
-    });
+    if (this.isPracticeMode) {
+      const move = this.game.move({
+        from: source,
+        to: target,
+        promotion: 'q'
+      });
+      if (move === null) return 'snapback';
+      this.checkPracticeMove(move);
+      return;
+    }
 
-    if (move === null) return 'snapback';
+    // Interactive Try Move in Review Mode
+    if (this.reviewData && this.reviewData.moves && this.reviewData.moves.length > 0) {
+      const targetMoveData = this.currentPly > 0 ? this.reviewData.moves[this.currentPly - 1] : this.reviewData.moves[0];
+      if (targetMoveData) {
+        const move = this.game.move({
+          from: source,
+          to: target,
+          promotion: 'q'
+        });
+        if (move === null) return 'snapback';
 
-    this.checkPracticeMove(move);
+        this.startPracticeMode(targetMoveData);
+        this.checkPracticeMove(move);
+        return;
+      }
+    }
+
+    return 'snapback';
   },
 
   onSnapEnd() {
