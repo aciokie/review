@@ -236,13 +236,19 @@ const BoardManager = {
   onDrop(source, target) {
     if (source === target) return 'snapback';
 
+    // Attempt legal move on the current position
+    const move = this.game.move({
+      from: source,
+      to: target,
+      promotion: 'q'
+    });
+
+    if (move === null) return 'snapback';
+
+    // Update board position
+    this.board.position(this.game.fen());
+
     if (this.isPracticeMode) {
-      const move = this.game.move({
-        from: source,
-        to: target,
-        promotion: 'q'
-      });
-      if (move === null) return 'snapback';
       this.checkPracticeMove(move);
       return;
     }
@@ -251,23 +257,18 @@ const BoardManager = {
     if (this.reviewData && this.reviewData.moves && this.reviewData.moves.length > 0) {
       const targetMoveData = this.currentPly > 0 ? this.reviewData.moves[this.currentPly - 1] : this.reviewData.moves[0];
       if (targetMoveData) {
-        const move = this.game.move({
-          from: source,
-          to: target,
-          promotion: 'q'
-        });
-        if (move === null) return 'snapback';
-
         this.startPracticeMode(targetMoveData);
         this.checkPracticeMove(move);
         return;
       }
     }
 
-    return 'snapback';
+    // Custom move feedback on empty/interactive board
+    $("#selected-move-title").text("PLAYED " + move.san.toUpperCase()).css("color", "#81b64c");
+    $("#move-explanation").text("Played move " + move.san + " on the board. Start engine review for deep analysis!");
   },
 
-  onSnapEnd() {
+    onSnapEnd() {
     this.board.position(this.game.fen());
   },
 
