@@ -45,18 +45,40 @@ const BoardManager = {
   goToPly(ply) {
     if (!this.reviewData || !this.reviewData.moves) return;
 
-    this.currentPly = Math.max(0, Math.min(ply, this.reviewData.moves.length));
+    const totalMoves = this.reviewData.moves.length;
+    this.currentPly = Math.max(0, Math.min(ply, totalMoves));
 
-    this.game.reset();
-    for (let i = 0; i < this.currentPly; i++) {
-      const m = this.reviewData.moves[i];
-      if (m && m.played_san) {
-        this.game.move(m.played_san);
+    if (this.currentPly === 0) {
+      this.game.reset();
+    } else {
+      const moveData = this.reviewData.moves[this.currentPly - 1];
+      if (moveData && moveData.fen_after) {
+        this.game.load(moveData.fen_after);
+      } else {
+        // Fallback move replay
+        this.game.reset();
+        for (let i = 0; i < this.currentPly; i++) {
+          const m = this.reviewData.moves[i];
+          if (m && m.played_san) {
+            this.game.move(m.played_san);
+          } else if (m && m.played_uci) {
+            this.game.move({
+              from: m.played_uci.substring(0, 2),
+              to: m.played_uci.substring(2, 4),
+              promotion: m.played_uci.length > 4 ? m.played_uci[4] : 'q'
+            });
+          }
+        }
       }
     }
 
+    // Update Chessboard UI position
     this.board.position(this.game.fen(), true);
-    this.highlightCurrentMove();
+
+    // Highlight moves and draw arrows/badges
+    setTimeout(() => {
+      this.highlightCurrentMove();
+    }, 50);
 
     // Trigger update move review panel & chart highlight
     if (window.ReviewUI) {
@@ -172,7 +194,7 @@ const BoardManager = {
     if (moveData.played_uci && moveData.played_uci.length >= 4) {
       const fromSq = moveData.played_uci.substring(0, 2);
       const toSq = moveData.played_uci.substring(2, 4);
-      const targetSqEl = $(`#my-board .square-${fromSq}`).addClass("highlight-played-move");
+      $(`#my-board .square-${fromSq}`).addClass("highlight-played-move");
       const targetToSqEl = $(`#my-board .square-${toSq}`).addClass("highlight-played-move");
 
       // Attach On-Board Move Classification Badge Icon on target square
