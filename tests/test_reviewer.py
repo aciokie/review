@@ -1,5 +1,6 @@
 import pytest
-from backend.reviewer import calculate_move_accuracy, estimate_performance_elo, detect_opening, GameReviewer
+import chess
+from backend.reviewer import calculate_move_accuracy, estimate_performance_elo, detect_opening, GameReviewer, classify_move
 from backend.engine import StockfishEngineManager
 
 def test_calculate_move_accuracy():
@@ -16,9 +17,6 @@ def test_estimate_performance_elo():
 def test_detect_opening():
     op = detect_opening(["e4", "e5", "Nf3", "Nc6", "Bb5"])
     assert op["opening"] == "Ruy Lopez"
-
-if __name__ == "__main__":
-    pytest.main([__file__])
 
 def test_game_reviewer_mocked(monkeypatch):
     mgr = StockfishEngineManager()
@@ -46,3 +44,46 @@ def test_game_reviewer_mocked(monkeypatch):
     assert len(result["moves"]) == 4
     assert "caps_formula" in result["accuracy"]
     assert "white" in result["accuracy"]
+
+def test_classify_move_categories():
+    board = chess.Board()
+    move_e4 = chess.Move.from_uci("e2e4")
+
+    # 1. Book Move
+    cat, exp = classify_move(board, move_e4, "e4", "e4", "e2e4", {"white_win_chance": 50.0}, {"white_win_chance": 50.0}, 1, True)
+    assert cat == "BOOK_MOVE"
+
+    # 2. Great Move
+    cat, exp = classify_move(board, move_e4, "e4", "e4", "e2e4", {"white_win_chance": 45.0}, {"white_win_chance": 70.0}, 15, False)
+    assert cat == "GREAT_MOVE"
+
+    # 3. Best Move
+    cat, exp = classify_move(board, move_e4, "e4", "e4", "e2e4", {"white_win_chance": 50.0}, {"white_win_chance": 50.0}, 5, False)
+    assert cat == "BEST_MOVE"
+
+    # 4. Excellent Move
+    cat, exp = classify_move(board, move_e4, "e4", "d4", "d2d4", {"white_win_chance": 50.0}, {"white_win_chance": 48.0}, 5, False)
+    assert cat == "EXCELLENT"
+
+    # 5. Good Move
+    cat, exp = classify_move(board, move_e4, "e4", "d4", "d2d4", {"white_win_chance": 50.0}, {"white_win_chance": 44.0}, 5, False)
+    assert cat == "GOOD"
+
+    # 6. Inaccuracy
+    cat, exp = classify_move(board, move_e4, "e4", "d4", "d2d4", {"white_win_chance": 50.0}, {"white_win_chance": 38.0}, 5, False)
+    assert cat == "INACCURACY"
+
+    # 7. Mistake
+    cat, exp = classify_move(board, move_e4, "e4", "d4", "d2d4", {"white_win_chance": 50.0}, {"white_win_chance": 28.0}, 5, False)
+    assert cat == "MISTAKE"
+
+    # 8. Blunder
+    cat, exp = classify_move(board, move_e4, "e4", "d4", "d2d4", {"white_win_chance": 50.0}, {"white_win_chance": 5.0}, 5, False)
+    assert cat == "BLUNDER"
+
+    # 9. Miss
+    cat, exp = classify_move(board, move_e4, "e4", "d4", "d2d4", {"white_win_chance": 75.0}, {"white_win_chance": 20.0}, 5, False)
+    assert cat == "MISS"
+
+if __name__ == "__main__":
+    pytest.main([__file__])
