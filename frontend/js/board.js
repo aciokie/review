@@ -72,13 +72,14 @@ const BoardManager = {
       }
     }
 
-    // Update Chessboard UI position
-    this.board.position(this.game.fen(), true);
+    // Clear previous overlays synchronously
+    this.clearArrowsAndBadges();
 
-    // Highlight moves and draw arrows/badges
-    setTimeout(() => {
-      this.highlightCurrentMove();
-    }, 50);
+    // Update Chessboard UI position instantly
+    this.board.position(this.game.fen(), false);
+
+    // Highlight moves and draw arrows/badges synchronously in same frame
+    this.highlightCurrentMove();
 
     // Trigger update move review panel & chart highlight
     if (window.ReviewUI) {
@@ -322,7 +323,7 @@ const BoardManager = {
 
     $("#btn-flip").click(() => {
       this.board.flip();
-      setTimeout(() => this.highlightCurrentMove(), 150);
+      this.highlightCurrentMove();
     });
 
     $("#btn-play").click(() => {
@@ -376,7 +377,7 @@ const BoardManager = {
         case "F":
           e.preventDefault();
           this.board.flip();
-          setTimeout(() => this.highlightCurrentMove(), 150);
+          this.highlightCurrentMove();
           break;
       }
     });
